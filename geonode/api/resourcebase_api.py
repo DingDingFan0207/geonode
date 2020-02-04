@@ -45,7 +45,7 @@ from django.forms.models import model_to_dict
 
 from tastypie.utils.mime import build_content_type
 
-from geonode import get_version, qgis_server, geoserver
+from geonode import get_version, qgis_server, geoserver, GeoNodeException
 from geonode.layers.models import Layer
 from geonode.maps.models import Map
 from geonode.documents.models import Document
@@ -76,6 +76,49 @@ LAYER_SUBTYPES = {
     'vector_time': 'vectorTimeSeries',
 }
 FILTER_TYPES.update(LAYER_SUBTYPES)
+
+DEFAULT_EAST = 188.4375
+DEFAULT_WEST = -181.40625
+DEFAULT_NORTH = 87.38445679076668
+DEFAULT_SOUTH = -86.81727471533517
+
+
+def bbox_intersects(bbox_W, bbox_E, bbox_N, bbox_S):
+
+    intersects = None
+
+    if bbox_E - bbox_W == (DEFAULT_EAST - DEFAULT_WEST):
+        # Ony shifting/dragging the default extent, without zooming in or out
+        return ~(Q(bbox_x0__gt=str(DEFAULT_EAST)) | Q(bbox_x1__lt=str(DEFAULT_WEST)) |
+                 Q(bbox_y0__gt=str(DEFAULT_NORTH)) | Q(bbox_y1__lt=str(DEFAULT_SOUTH)))
+
+    # normalization of bbox_E and bbox_W
+    # When the extent view includes IDL
+    # bbox_E and bbox_W appear to be flipped
+    while bbox_E > DEFAULT_EAST:
+        bbox_E -= 360
+    while bbox_W > DEFAULT_EAST:
+        bbox_W -= 360
+    while bbox_W < DEFAULT_WEST:
+        bbox_W += 360
+    while bbox_E < DEFAULT_WEST:
+        bbox_E += 360
+
+    if bbox_W > bbox_E:
+        # bbox_W > bbox_E
+        # When the extent view includes IDL
+        intersects = (~(Q(bbox_x0__gt=str(bbox_E)) | Q(bbox_x1__lt=str(DEFAULT_WEST)) |
+                      Q(bbox_y0__gt=str(bbox_N)) | Q(bbox_y1__lt=str(bbox_S))) &
+                      ~(Q(bbox_x0__gt=str(DEFAULT_EAST)) | Q(bbox_x1__lt=str(bbox_W)) |
+                      Q(bbox_y0__gt=str(bbox_N)) | Q(bbox_y1__lt=str(bbox_S))))
+
+    else:
+        # bbox_W < bbox_E
+        # normal searching within the default view
+        intersects = ~(Q(bbox_x0__gt=str(bbox_E)) | Q(bbox_x1__lt=str(bbox_W)) |
+                       Q(bbox_y0__gt=str(bbox_N)) | Q(bbox_y1__lt=str(bbox_S)))
+
+    return intersects
 
 
 class CommonMetaApi:
@@ -274,9 +317,11 @@ class CommonModelApi(ModelResource):
         """
         bbox = bbox.split(',')  # TODO: Why is this different when done through haystack?
         bbox = list(map(str, bbox))  # 2.6 compat - float to decimal conversion
-        intersects = ~(Q(bbox_x0__gt=bbox[2]) | Q(bbox_x1__lt=bbox[0]) |
-                       Q(bbox_y0__gt=bbox[3]) | Q(bbox_y1__lt=bbox[1]))
-
+        # in order of W, E, N, S
+        intersects = bbox_intersects(float(bbox[0]), float(bbox[2]), float(bbox[3]), float(bbox[1]))
+        if intersects is None:
+            msg = "Bounding box has wrong logocal implementation."
+            raise GeoNodeException(msg)
         return queryset.filter(intersects)
 
     def build_haystack_filters(self, parameters):
