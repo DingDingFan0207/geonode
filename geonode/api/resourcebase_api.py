@@ -42,6 +42,7 @@ from django.core.paginator import Paginator, InvalidPage
 from django.http import Http404
 from django.core.exceptions import ObjectDoesNotExist
 from django.forms.models import model_to_dict
+from django.contrib.gis.geos import Polygon
 
 from tastypie.utils.mime import build_content_type
 
@@ -56,6 +57,10 @@ from geonode.utils import check_ogc_backend
 from geonode.security.utils import get_visible_resources
 from .authentication import OAuthAuthentication
 from .authorization import GeoNodeAuthorization, GeonodeApiKeyAuthentication
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 from .api import (TagResource,
                   RegionResource,
@@ -178,6 +183,7 @@ class CommonModelApi(ModelResource):
         'share_count',
         'popular_count',
         'srid',
+        'bbox_polygon',
         'bbox_x0',
         'bbox_x1',
         'bbox_y0',
@@ -317,12 +323,11 @@ class CommonModelApi(ModelResource):
         """
         bbox = bbox.split(',')  # TODO: Why is this different when done through haystack?
         bbox = list(map(str, bbox))  # 2.6 compat - float to decimal conversion
-        # in order of W, E, N, S
-        intersects = bbox_intersects(float(bbox[0]), float(bbox[2]), float(bbox[3]), float(bbox[1]))
-        if intersects is None:
-            msg = "Bounding box has wrong logocal implementation."
-            raise GeoNodeException(msg)
-        return queryset.filter(intersects)
+        bbox_tuple = (bbox[0], bbox[1], bbox[2], bbox[3])
+        bbox_from_search = Polygon.from_bbox(bbox_tuple)
+        return Layer.objects.filter(bbox_polygon__intersects=bbox_from_search)
+
+
 
     def build_haystack_filters(self, parameters):
         from haystack.inputs import Raw

@@ -529,7 +529,7 @@ def pre_save_layer(instance, sender, **kwargs):
             logger.exception(e)
 
     if instance.abstract == '' or instance.abstract is None:
-        instance.abstract = u'No abstract provided'
+        instance.abstract = 'No abstract provided'
     if instance.title == '' or instance.title is None:
         instance.title = instance.name
 
@@ -576,6 +576,8 @@ def pre_save_layer(instance, sender, **kwargs):
         instance.bbox_y0,
         instance.bbox_y1]
 
+    instance.bbox_polygon = instance.set_bbox_polygon(bbox)
+    
     instance.set_bounds_from_bbox(bbox, instance.srid)
 
 

@@ -36,6 +36,8 @@ from django.contrib.staticfiles.templatetags import staticfiles
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.contrib.gis.geos import Polygon
+from django.contrib.gis.db.models import PolygonField
 from django.core.files.storage import default_storage as storage
 from django.core.files.base import ContentFile
 from django.contrib.gis.geos import GEOSGeometry
@@ -731,6 +733,8 @@ class ResourceBase(PolymorphicModel, PermissionLevelMixin, ItemBase):
     # Save bbox values in the database.
     # This is useful for spatial searches and for generating thumbnail images
     # and metadata records.
+    bbox_polygon = PolygonField(null=True)
+
     bbox_x0 = models.DecimalField(
         max_digits=30,
         decimal_places=15,
@@ -1011,6 +1015,15 @@ class ResourceBase(PolymorphicModel, PermissionLevelMixin, ItemBase):
         except BaseException:
             return ''
 
+    def set_bbox_polygon(self, bbox):
+        """BBOX is in the format: [x0,x1,y0,y1]."""
+        bbox_tup = (bbox[0], bbox[2], bbox[1], bbox[3])
+        bbox_polygon = Polygon.from_bbox(bbox_tup)
+        split_srid = self.srid.split(':')
+        srid_num = int(split_srid[1])
+        bbox_polygon.srid = srid_num
+        return bbox_polygon
+        
     def set_bounds_from_center_and_zoom(self, center_x, center_y, zoom):
         """
         Calculate zoom level and center coordinates in mercator.
