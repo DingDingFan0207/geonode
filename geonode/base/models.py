@@ -1016,7 +1016,9 @@ class ResourceBase(PolymorphicModel, PermissionLevelMixin, ItemBase):
             return ''
 
     def set_bbox_polygon(self, bbox):
-        """BBOX is in the format: [x0,x1,y0,y1]."""
+        """
+        Set polygons into bbox_polygon from bbox values
+        """
         bbox_tup = (bbox[0], bbox[2], bbox[1], bbox[3])
         bbox_polygon = Polygon.from_bbox(bbox_tup)
         split_srid = self.srid.split(':')

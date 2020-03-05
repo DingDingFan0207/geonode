@@ -58,10 +58,6 @@ from geonode.security.utils import get_visible_resources
 from .authentication import OAuthAuthentication
 from .authorization import GeoNodeAuthorization, GeonodeApiKeyAuthentication
 
-import logging
-logger = logging.getLogger(__name__)
-
-
 from .api import (TagResource,
                   RegionResource,
                   OwnersResource,
@@ -84,6 +80,7 @@ LAYER_SUBTYPES = {
     'vector_time': 'vectorTimeSeries',
 }
 FILTER_TYPES.update(LAYER_SUBTYPES)
+
 
 class CommonMetaApi:
     authorization = GeoNodeAuthorization()
@@ -142,7 +139,6 @@ class CommonModelApi(ModelResource):
         'share_count',
         'popular_count',
         'srid',
-        'bbox_polygon',
         'bbox_x0',
         'bbox_x1',
         'bbox_y0',
@@ -284,13 +280,12 @@ class CommonModelApi(ModelResource):
         returns the modified query
         """
         bbox = bbox.split(',')  # TODO: Why is this different when done through haystack?
-        bbox = list(map(float, bbox)) 
+        bbox = list(map(float, bbox))
+        x_min = self.x_value_wrapper(bbox[0])
+        x_max = self.x_value_wrapper(bbox[2])
         
         if abs(bbox[0] - bbox[2]) >= 360:
             return Layer.objects.all()
-
-        x_min = self.x_value_wrapper(bbox[0])
-        x_max = self.x_value_wrapper(bbox[2])
 
         # bbox_tuple in strict format of (xmin, ymin, xmax, ymax)
         # as required by Polygon.from_bbox() function
