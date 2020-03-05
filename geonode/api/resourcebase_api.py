@@ -46,7 +46,7 @@ from django.contrib.gis.geos import Polygon
 
 from tastypie.utils.mime import build_content_type
 
-from geonode import get_version, qgis_server, geoserver, GeoNodeException
+from geonode import get_version, qgis_server, geoserver
 from geonode.layers.models import Layer
 from geonode.maps.models import Map
 from geonode.documents.models import Document
