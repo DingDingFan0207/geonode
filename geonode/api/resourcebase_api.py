@@ -67,8 +67,8 @@ from .api import (TagResource,
                   FILTER_TYPES)
 from .paginator import CrossSiteXHRPaginator
 
-DEFAULT_EAST = 188.4375
-DEFAULT_WEST = -181.40625
+DEFAULT_EAST = 180
+DEFAULT_WEST = -180
 
 if settings.HAYSTACK_SEARCH:
     from haystack.query import SearchQuerySet  # noqa
