@@ -71,6 +71,9 @@ from .api import (TagResource,
                   FILTER_TYPES)
 from .paginator import CrossSiteXHRPaginator
 
+DEFAULT_EAST = 188.4375
+DEFAULT_WEST = -181.40625
+
 if settings.HAYSTACK_SEARCH:
     from haystack.query import SearchQuerySet  # noqa
 
@@ -81,50 +84,6 @@ LAYER_SUBTYPES = {
     'vector_time': 'vectorTimeSeries',
 }
 FILTER_TYPES.update(LAYER_SUBTYPES)
-
-DEFAULT_EAST = 188.4375
-DEFAULT_WEST = -181.40625
-DEFAULT_NORTH = 87.38445679076668
-DEFAULT_SOUTH = -86.81727471533517
-
-
-def bbox_intersects(bbox_W, bbox_E, bbox_N, bbox_S):
-
-    intersects = None
-
-    if bbox_E - bbox_W == (DEFAULT_EAST - DEFAULT_WEST):
-        # Ony shifting/dragging the default extent, without zooming in or out
-        return ~(Q(bbox_x0__gt=str(DEFAULT_EAST)) | Q(bbox_x1__lt=str(DEFAULT_WEST)) |
-                 Q(bbox_y0__gt=str(DEFAULT_NORTH)) | Q(bbox_y1__lt=str(DEFAULT_SOUTH)))
-
-    # normalization of bbox_E and bbox_W
-    # When the extent view includes IDL
-    # bbox_E and bbox_W appear to be flipped
-    while bbox_E > DEFAULT_EAST:
-        bbox_E -= 360
-    while bbox_W > DEFAULT_EAST:
-        bbox_W -= 360
-    while bbox_W < DEFAULT_WEST:
-        bbox_W += 360
-    while bbox_E < DEFAULT_WEST:
-        bbox_E += 360
-
-    if bbox_W > bbox_E:
-        # bbox_W > bbox_E
-        # When the extent view includes IDL
-        intersects = (~(Q(bbox_x0__gt=str(bbox_E)) | Q(bbox_x1__lt=str(DEFAULT_WEST)) |
-                      Q(bbox_y0__gt=str(bbox_N)) | Q(bbox_y1__lt=str(bbox_S))) &
-                      ~(Q(bbox_x0__gt=str(DEFAULT_EAST)) | Q(bbox_x1__lt=str(bbox_W)) |
-                      Q(bbox_y0__gt=str(bbox_N)) | Q(bbox_y1__lt=str(bbox_S))))
-
-    else:
-        # bbox_W < bbox_E
-        # normal searching within the default view
-        intersects = ~(Q(bbox_x0__gt=str(bbox_E)) | Q(bbox_x1__lt=str(bbox_W)) |
-                       Q(bbox_y0__gt=str(bbox_N)) | Q(bbox_y1__lt=str(bbox_S)))
-
-    return intersects
-
 
 class CommonMetaApi:
     authorization = GeoNodeAuthorization()
@@ -312,6 +271,9 @@ class CommonModelApi(ModelResource):
         filtered = queryset.filter(Q(keywords__in=treeqs))
         return filtered
 
+    def x_value_wrapper(self, bbox_x):
+        return ((bbox_x + 180) % 360) - 180
+
     def filter_bbox(self, queryset, bbox):
         """
         modify the queryset q to limit to data that intersects with the
@@ -322,12 +284,26 @@ class CommonModelApi(ModelResource):
         returns the modified query
         """
         bbox = bbox.split(',')  # TODO: Why is this different when done through haystack?
-        bbox = list(map(str, bbox))  # 2.6 compat - float to decimal conversion
-        bbox_tuple = (bbox[0], bbox[1], bbox[2], bbox[3])
-        bbox_from_search = Polygon.from_bbox(bbox_tuple)
-        return Layer.objects.filter(bbox_polygon__intersects=bbox_from_search)
+        bbox = list(map(float, bbox)) 
+        
+        if abs(bbox[0] - bbox[2]) >= 360:
+            return Layer.objects.all()
 
+        x_min = self.x_value_wrapper(bbox[0])
+        x_max = self.x_value_wrapper(bbox[2])
 
+        # bbox_tuple in strict format of (xmin, ymin, xmax, ymax)
+        # as required by Polygon.from_bbox() function
+        if x_min > x_max:
+            left_bbox_tuple = (DEFAULT_WEST, bbox[1], x_max, bbox[3])
+            left_polygon = Polygon.from_bbox(left_bbox_tuple)
+            right_bbox_tuple = (x_min, bbox[1], DEFAULT_EAST, bbox[3])
+            right_polygon = Polygon.from_bbox(right_bbox_tuple)
+            return Layer.objects.filter(Q(bbox_polygon__intersects=left_polygon) | Q(bbox_polygon__intersects=right_polygon))
+        else:
+            bbox_tuple = (x_min, bbox[1], x_max, bbox[3])
+            bbox_from_search = Polygon.from_bbox(bbox_tuple)
+            return Layer.objects.filter(bbox_polygon__intersects=bbox_from_search)
 
     def build_haystack_filters(self, parameters):
         from haystack.inputs import Raw
