@@ -38,11 +38,11 @@ from tastypie.utils import trailing_slash
 from guardian.shortcuts import get_objects_for_user
 
 from django.conf.urls import url
+from django.contrib.gis.geos import Polygon
 from django.core.paginator import Paginator, InvalidPage
 from django.http import Http404
 from django.core.exceptions import ObjectDoesNotExist
 from django.forms.models import model_to_dict
-from django.contrib.gis.geos import Polygon
 
 from tastypie.utils.mime import build_content_type
 
@@ -66,9 +66,6 @@ from .api import (TagResource,
                   GroupResource,
                   FILTER_TYPES)
 from .paginator import CrossSiteXHRPaginator
-
-DEFAULT_EAST = 180
-DEFAULT_WEST = -180
 
 if settings.HAYSTACK_SEARCH:
     from haystack.query import SearchQuerySet  # noqa
@@ -267,8 +264,11 @@ class CommonModelApi(ModelResource):
         filtered = queryset.filter(Q(keywords__in=treeqs))
         return filtered
 
-    def x_value_wrapper(self, bbox_x):
-        return ((bbox_x + 180) % 360) - 180
+    def x_value_wrapper(self, x):
+        """
+        Algorithmically normalise x-axis value/longtitude to within [-180, 180]
+        """
+        return ((x + 180) % 360) - 180
 
     def filter_bbox(self, queryset, bbox):
         """
@@ -284,20 +284,17 @@ class CommonModelApi(ModelResource):
         x_min = self.x_value_wrapper(bbox[0])
         x_max = self.x_value_wrapper(bbox[2])
         
+        # When the given extent exceeds the standard co-ordinate system [-180, 180]
         if abs(bbox[0] - bbox[2]) >= 360:
             return Layer.objects.all()
 
-        # bbox_tuple in strict format of (xmin, ymin, xmax, ymax)
-        # as required by Polygon.from_bbox() function
         if x_min > x_max:
-            left_bbox_tuple = (DEFAULT_WEST, bbox[1], x_max, bbox[3])
-            left_polygon = Polygon.from_bbox(left_bbox_tuple)
-            right_bbox_tuple = (x_min, bbox[1], DEFAULT_EAST, bbox[3])
-            right_polygon = Polygon.from_bbox(right_bbox_tuple)
+            # bbox_tuple should be in format of (xmin, ymin, xmax, ymax)
+            left_polygon = Polygon.from_bbox((-180, bbox[1], x_max, bbox[3]))
+            right_polygon = Polygon.from_bbox((x_min, bbox[1], 180, bbox[3]))
             return Layer.objects.filter(Q(bbox_polygon__intersects=left_polygon) | Q(bbox_polygon__intersects=right_polygon))
         else:
-            bbox_tuple = (x_min, bbox[1], x_max, bbox[3])
-            bbox_from_search = Polygon.from_bbox(bbox_tuple)
+            bbox_from_search = Polygon.from_bbox((x_min, bbox[1], x_max, bbox[3]))
             return Layer.objects.filter(bbox_polygon__intersects=bbox_from_search)
 
     def build_haystack_filters(self, parameters):
