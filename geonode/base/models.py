@@ -1019,8 +1019,7 @@ class ResourceBase(PolymorphicModel, PermissionLevelMixin, ItemBase):
         """
         Set polygons into bbox_polygon from bbox values
         """
-        bbox_tup = (bbox[0], bbox[2], bbox[1], bbox[3])
-        bbox_polygon = Polygon.from_bbox(bbox_tup)
+        bbox_polygon = Polygon.from_bbox((bbox[0], bbox[2], bbox[1], bbox[3]))
         bbox_polygon.srid = int(self.srid.split(':')[1])
         return bbox_polygon
         

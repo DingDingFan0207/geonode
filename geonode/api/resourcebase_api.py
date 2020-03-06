@@ -288,8 +288,10 @@ class CommonModelApi(ModelResource):
         if abs(bbox[0] - bbox[2]) >= 360:
             return Layer.objects.all()
 
+        # bbox_tuple should be in format of (xmin, ymin, xmax, ymax)
         if x_min > x_max:
-            # bbox_tuple should be in format of (xmin, ymin, xmax, ymax)
+            # When the given extent includes IDL
+            # x_value_wrapper normalisation will switch EAST and WEST boudaries
             left_polygon = Polygon.from_bbox((-180, bbox[1], x_max, bbox[3]))
             right_polygon = Polygon.from_bbox((x_min, bbox[1], 180, bbox[3]))
             return Layer.objects.filter(Q(bbox_polygon__intersects=left_polygon) | Q(bbox_polygon__intersects=right_polygon))
