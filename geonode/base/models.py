@@ -1022,7 +1022,7 @@ class ResourceBase(PolymorphicModel, PermissionLevelMixin, ItemBase):
         bbox_polygon = Polygon.from_bbox((bbox[0], bbox[2], bbox[1], bbox[3]))
         bbox_polygon.srid = int(self.srid.split(':')[1])
         return bbox_polygon
-        
+
     def set_bounds_from_center_and_zoom(self, center_x, center_y, zoom):
         """
         Calculate zoom level and center coordinates in mercator.

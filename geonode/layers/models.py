@@ -577,7 +577,7 @@ def pre_save_layer(instance, sender, **kwargs):
         instance.bbox_y1]
 
     instance.bbox_polygon = instance.set_bbox_polygon(bbox)
-    
+
     instance.set_bounds_from_bbox(bbox, instance.srid)
 
 

@@ -283,18 +283,18 @@ class CommonModelApi(ModelResource):
         bbox = list(map(float, bbox))
         x_min = self.x_value_wrapper(bbox[0])
         x_max = self.x_value_wrapper(bbox[2])
-        
+
         # When the given extent exceeds the standard co-ordinate system [-180, 180]
         if abs(bbox[0] - bbox[2]) >= 360:
             return Layer.objects.all()
 
-        # bbox_tuple should be in format of (xmin, ymin, xmax, ymax)
         if x_min > x_max:
             # When the given extent includes IDL
             # x_value_wrapper normalisation will switch EAST and WEST boudaries
             left_polygon = Polygon.from_bbox((-180, bbox[1], x_max, bbox[3]))
             right_polygon = Polygon.from_bbox((x_min, bbox[1], 180, bbox[3]))
-            return Layer.objects.filter(Q(bbox_polygon__intersects=left_polygon) | Q(bbox_polygon__intersects=right_polygon))
+            return Layer.objects.filter(Q(bbox_polygon__intersects=left_polygon) |
+                                        Q(bbox_polygon__intersects=right_polygon))
         else:
             bbox_from_search = Polygon.from_bbox((x_min, bbox[1], x_max, bbox[3]))
             return Layer.objects.filter(bbox_polygon__intersects=bbox_from_search)
