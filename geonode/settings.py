@@ -39,6 +39,14 @@ import dj_database_url
 from django.conf.global_settings import DATETIME_INPUT_FORMATS
 from geonode import get_version
 from kombu import Queue, Exchange
+from kombu.serialization import register
+
+from .myjson import (my_dumps, my_loads)
+
+
+register('myjson', my_dumps, my_loads, 
+    content_type='application/x-myjson',
+    content_encoding='utf-8')
 
 
 SILENCED_SYSTEM_CHECKS = [
@@ -1687,9 +1695,12 @@ CELERY_TASK_EAGER_PROPAGATES = ast.literal_eval(os.environ.get('CELERY_TASK_EAGE
 CELERY_TASK_IGNORE_RESULT = ast.literal_eval(os.environ.get('CELERY_TASK_IGNORE_RESULT', 'True'))
 
 # I use these to debug kombu crashes; we get a more informative message.
-CELERY_TASK_SERIALIZER = os.environ.get('CELERY_TASK_SERIALIZER', 'json')
-CELERY_RESULT_SERIALIZER = os.environ.get('CELERY_RESULT_SERIALIZER', 'json')
-CELERY_ACCEPT_CONTENT = [CELERY_RESULT_SERIALIZER, ]
+# CELERY_TASK_SERIALIZER = os.environ.get('CELERY_TASK_SERIALIZER', 'json')
+# CELERY_RESULT_SERIALIZER = os.environ.get('CELERY_RESULT_SERIALIZER', 'json')
+# CELERY_ACCEPT_CONTENT = [CELERY_RESULT_SERIALIZER, ]
+CELERY_ACCEPT_CONTENT = ['myjson']
+CELERY_TASK_SERIALIZER = 'myjson'
+CELERY_RESULT_SERIALIZER = 'myjson'
 
 # Set Tasks Queues
 # CELERY_TASK_DEFAULT_QUEUE = "default"
