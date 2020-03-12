@@ -1,4 +1,5 @@
 import json
+import decimal
 from django.contrib.gis.geos import GEOSGeometry
 from django.contrib.gis.geos import Polygon
 
@@ -11,8 +12,10 @@ class MyEncoder(json.JSONEncoder):
                 '__type__':'__polygon__',
                 'ewkt': obj.ewkt
             }
-        else:
-            return json.JSONEncoder.default(self, obj)
+        if isinstance(obj, decimal.Decimal):
+            return float(obj)
+        
+        return json.JSONEncoder.default(self, obj)
 
 
 def my_decoder(obj):
