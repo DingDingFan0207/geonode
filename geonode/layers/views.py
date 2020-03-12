@@ -276,7 +276,7 @@ def layer_upload(request, template='upload/layer_upload.html'):
                 out['success'] = False
                 out['errormsgs'] = _('Failed to upload the layer')
                 try:
-                    out['errors'] = u''.join(error)
+                    out['errors'] = ''.join(error)
                 except BaseException:
                     try:
                         out['errors'] = str(error)
@@ -310,7 +310,10 @@ def layer_upload(request, template='upload/layer_upload.html'):
                     except TypeError:
                         upload_session.traceback = traceback.format_tb(tb)
                     upload_session.context = log_snippet(CONTEXT_LOG_FILE)
-                    upload_session.save()
+                    try:
+                        upload_session.save()
+                    except ValueError:
+                        pass
                     out['traceback'] = upload_session.traceback
                     out['context'] = upload_session.context
                     out['upload_session'] = upload_session.id
